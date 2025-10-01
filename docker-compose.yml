@@ -1,0 +1,32 @@
+version: "3.8"
+
+services:
+  traefik:
+    image: traefik:3
+    container_name: traefik
+    command:
+      - "--api.dashboard=true"
+      - "--api.insecure=true"          # Dashboard activé en clair (⚠️ ne pas mettre en prod)
+      - "--providers.docker=true"      # Auto-config à partir des labels Docker
+      - "--entrypoints.web.address=:80" # Traefik écoute sur port 80
+    ports:
+      - "80:80"   # accès à l'API via http://localhost
+      - "8080:8080" # Dashboard Traefik http://localhost:8080
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    restart: always
+
+  gateway_service:
+    build: .
+    container_name: gateway_service
+    expose:       # pas besoin de "ports", seulement exposer à Traefik
+      - "8080"
+    environment:
+      GATEWAY_SECRET: ${GATEWAY_SECRET}
+      JWT_SECRET: ${JWT_SECRET}
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.gateway.rule=PathPrefix(`/`)" # toutes les requêtes passent au Gateway
+      - "traefik.http.routers.gateway.entrypoints=web"
+      - "traefik.http.services.gateway.loadbalancer.server.port=8080"
+    restart: always

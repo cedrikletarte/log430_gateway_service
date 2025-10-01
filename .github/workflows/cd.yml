@@ -1,0 +1,29 @@
+name: Continuous Delivery (CD)
+
+on:
+  push:
+    branches: ["master"]
+
+concurrency:
+  group: deploy
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: self-hosted
+
+    steps:
+      - name: Checkout dépot
+        uses: actions/checkout@v3
+
+      - name: stop containers
+        run: docker compose down -v
+
+      - name: Pull new images
+        run: docker compose pull || true
+
+      - name: Start Docker services
+        env:
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          GATEWAY_SECRET: ${{ secrets.GATEWAY_SECRET }}
+        run: docker compose up -d --build
