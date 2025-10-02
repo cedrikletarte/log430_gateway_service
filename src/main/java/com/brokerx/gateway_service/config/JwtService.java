@@ -1,4 +1,4 @@
-package com.brokerx.gateway_service;
+package com.brokerx.gateway_service.config;
 
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;

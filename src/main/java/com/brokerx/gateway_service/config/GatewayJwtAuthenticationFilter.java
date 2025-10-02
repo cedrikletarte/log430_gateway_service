@@ -1,4 +1,4 @@
-package com.brokerx.gateway_service;
+package com.brokerx.gateway_service.config;
 
 
 import io.jsonwebtoken.ExpiredJwtException;
@@ -52,14 +52,24 @@ public class GatewayJwtAuthenticationFilter implements GlobalFilter, Ordered {
 
         System.out.println("Request Path: " + path);
 
-        // Skip validation for public endpoints
-        if (isPublicPath(path)) {
-            return chain.filter(exchange);
-        }
+        // Extract client info (toujours)
+        String clientIp = extractRealClientIp(request);
+        String userAgent = extractUserAgent(request);
+
+        ServerHttpRequest mutatedRequestBuilder = request.mutate()
+            .header("X-Client-Real-IP", clientIp)
+            .header("X-Client-User-Agent", userAgent)
+            .build();
+
 
         // OPTIONS requests (CORS preflight)
         if ("OPTIONS".equals(request.getMethod().name())) {
-            return chain.filter(exchange);
+            return chain.filter(exchange.mutate().request(mutatedRequestBuilder).build());
+        }
+
+        // Skip validation for public endpoints
+        if (isPublicPath(path)) {
+            return chain.filter(exchange.mutate().request(mutatedRequestBuilder).build());
         }
 
         // Extract JWT
@@ -82,11 +92,15 @@ public class GatewayJwtAuthenticationFilter implements GlobalFilter, Ordered {
 
             System.out.println("JWT validated - userId: " + userId + ", email: " + email + ", role: " + role);
 
-            // Add user information to headers
+            
+            log.info("clientip " + clientIp + " useragent " + userAgent);
+            // Add user information, client IP and User-Agent to headers
             ServerHttpRequest modifiedRequest = request.mutate()
                 .header("X-User-Id", userId)
                 .header("X-User-Email", email)
                 .header("X-User-Role", role)
+                .header("X-Client-Real-IP", clientIp)
+                .header("X-Client-User-Agent", userAgent)
                 .header("X-Gateway-Secret", generateSignature(userId, email, role))
                 .build();
 
@@ -164,5 +178,76 @@ public class GatewayJwtAuthenticationFilter implements GlobalFilter, Ordered {
             .claim("data", data)
             .signWith(Keys.hmacShaKeyFor(gatewaySecret.getBytes()))
             .compact();
+    }
+
+    /**
+     * Extracts the real client IP address, handling proxies and load balancers
+     */
+    private String extractRealClientIp(ServerHttpRequest request) {
+        // Check X-Forwarded-For header (standard for proxies)
+        String xForwardedFor = request.getHeaders().getFirst("X-Forwarded-For");
+        if (xForwardedFor != null && !xForwardedFor.isEmpty()) {
+            // X-Forwarded-For can contain multiple IPs: "client, proxy1, proxy2"
+            // The first one is usually the real client IP
+            String[] ips = xForwardedFor.split(",");
+            for (String ip : ips) {
+                String cleanIp = ip.trim();
+                if (!isInternalIp(cleanIp)) {
+                    return cleanIp;
+                }
+            }
+        }
+        
+        // Check X-Real-IP header (often used by NGINX)
+        String xRealIp = request.getHeaders().getFirst("X-Real-IP");
+        if (xRealIp != null && !xRealIp.isEmpty() && !isInternalIp(xRealIp)) {
+            return xRealIp;
+        }
+        
+        // Fallback to remote address
+        try {
+            var remoteAddress = request.getRemoteAddress();
+            if (remoteAddress != null && remoteAddress.getAddress() != null) {
+                return remoteAddress.getAddress().getHostAddress();
+            }
+        } catch (Exception e) {
+            log.warn("Error extracting remote address: {}", e.getMessage());
+        }
+        
+        return "unknown";
+    }
+
+    /**
+     * Extracts the User-Agent header from the request
+     */
+    private String extractUserAgent(ServerHttpRequest request) {
+        String userAgent = request.getHeaders().getFirst("User-Agent");
+        if (userAgent != null && !userAgent.isEmpty()) {
+            // Truncate if too long to avoid header size issues
+            return userAgent.length() > 500 ? userAgent.substring(0, 500) + "..." : userAgent;
+        }
+        return "unknown";
+    }
+
+    /**
+     * Checks if an IP address is internal/private
+     */
+    private boolean isInternalIp(String ip) {
+        if (ip == null || ip.isEmpty()) {
+            return true;
+        }
+        
+        // Common internal IP ranges
+        return ip.startsWith("10.") ||
+               ip.startsWith("172.16.") || ip.startsWith("172.17.") || ip.startsWith("172.18.") ||
+               ip.startsWith("172.19.") || ip.startsWith("172.20.") || ip.startsWith("172.21.") ||
+               ip.startsWith("172.22.") || ip.startsWith("172.23.") || ip.startsWith("172.24.") ||
+               ip.startsWith("172.25.") || ip.startsWith("172.26.") || ip.startsWith("172.27.") ||
+               ip.startsWith("172.28.") || ip.startsWith("172.29.") || ip.startsWith("172.30.") ||
+               ip.startsWith("172.31.") ||
+               ip.startsWith("192.168.") ||
+               ip.equals("127.0.0.1") ||
+               ip.equals("::1") ||
+               ip.equals("localhost");
     }
 }
