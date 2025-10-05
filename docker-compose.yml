@@ -35,11 +35,6 @@ services:
       - "traefik.http.routers.gateway.entrypoints=web"
       - "traefik.http.services.gateway.loadbalancer.server.port=8080"
     restart: always
-    depends_on:
-      - auth_service
-      - wallet_service
-      - market_service
-      - order_service
     networks:
       - brokerx-network
 
