@@ -18,9 +18,13 @@ jobs:
 
       - name: Create .env file
         run: |
-          echo "JWT_SECRET=${{ secrets.JWT_SECRET }}" > .env
-          echo "GATEWAY_SECRET=${{ secrets.GATEWAY_SECRET }}" >>
-
+          echo "SPRING_DATASOURCE_USERNAME=${{ secrets.SPRING_DATASOURCE_USERNAME }}" > .env
+          echo "SPRING_DATASOURCE_PASSWORD=${{ secrets.SPRING_DATASOURCE_PASSWORD }}" >> .env
+          echo "JWT_SECRET=${{ secrets.JWT_SECRET }}" >> .env
+          echo "GATEWAY_SECRET=${{ secrets.GATEWAY_SECRET }}" >> .env
+          echo "SPRING_MAIL_USERNAME=${{ secrets.SPRING_MAIL_USERNAME }}" >> .env
+          echo "SPRING_MAIL_PASSWORD=${{ secrets.SPRING_MAIL_PASSWORD }}" >> .env
+          
       - name: stop containers
         run: docker compose down -v
 
