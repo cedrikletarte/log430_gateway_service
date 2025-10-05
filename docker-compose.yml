@@ -1,6 +1,9 @@
-version: "3.8"
-
 services:
+
+  # ============================================
+  # 🌐 API GATEWAY (Traefik + Gateway Service)
+  # ============================================
+
   traefik:
     image: traefik:3
     container_name: traefik
@@ -15,6 +18,8 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
     restart: always
+    networks:
+      - brokerx-network
 
   gateway_service:
     build: .
@@ -30,3 +35,19 @@ services:
       - "traefik.http.routers.gateway.entrypoints=web"
       - "traefik.http.services.gateway.loadbalancer.server.port=8080"
     restart: always
+    depends_on:
+      - auth_service
+      - wallet_service
+      - market_service
+      - order_service
+    networks:
+      - brokerx-network
+
+# ============================================
+# 🌐 NETWORKS
+# ============================================
+
+networks:
+  brokerx-network:
+    external: true
+    name: brokerx-network
