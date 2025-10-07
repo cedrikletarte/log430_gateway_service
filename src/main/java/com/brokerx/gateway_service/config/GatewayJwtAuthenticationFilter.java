@@ -6,10 +6,11 @@ import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 
 import java.util.List;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
 import org.springframework.cloud.gateway.filter.GlobalFilter;
@@ -23,10 +24,11 @@ import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 
 
-@Slf4j
 @Component
 @RequiredArgsConstructor
 public class GatewayJwtAuthenticationFilter implements GlobalFilter, Ordered {
+
+    private static final Logger logger = LogManager.getLogger(GatewayJwtAuthenticationFilter.class);
 
     @Value("${gateway.secret}")
     private String gatewaySecret;
@@ -51,12 +53,13 @@ public class GatewayJwtAuthenticationFilter implements GlobalFilter, Ordered {
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
         ServerHttpRequest request = exchange.getRequest();
         String path = request.getPath().value();
-
-        System.out.println("Request Path: " + path);
+        String method = request.getMethod().name();
 
         // Extract client info (toujours)
         String clientIp = extractRealClientIp(request);
         String userAgent = extractUserAgent(request);
+
+        logger.info("Incoming request - Method: {}, Path: {}, IP: {}", method, path, clientIp);
 
         ServerHttpRequest mutatedRequestBuilder = request.mutate()
             .header("X-Client-Real-IP", clientIp)
@@ -66,11 +69,13 @@ public class GatewayJwtAuthenticationFilter implements GlobalFilter, Ordered {
 
         // OPTIONS requests (CORS preflight)
         if ("OPTIONS".equals(request.getMethod().name())) {
+            logger.debug("CORS preflight request for path: {}", path);
             return chain.filter(exchange.mutate().request(mutatedRequestBuilder).build());
         }
 
         // Skip validation for public endpoints
         if (isPublicPath(path)) {
+            logger.debug("Public endpoint accessed: {}", path);
             return chain.filter(exchange.mutate().request(mutatedRequestBuilder).build());
         }
 
@@ -78,12 +83,14 @@ public class GatewayJwtAuthenticationFilter implements GlobalFilter, Ordered {
         String jwt = extractJwt(request);
         
         if (jwt == null) {
+            logger.warn("Authentication failed - Missing JWT - Path: {}, IP: {}", path, clientIp);
             return onError(exchange, "Missing or invalid Authorization header", HttpStatus.UNAUTHORIZED);
         }
 
         try {
             // Validate JWT
             if (!jwtService.isTokenValid(jwt)) {
+                logger.warn("Authentication failed - Invalid JWT - Path: {}, IP: {}", path, clientIp);
                 return onError(exchange, "Invalid JWT token", HttpStatus.UNAUTHORIZED);
             }
 
@@ -92,10 +99,9 @@ public class GatewayJwtAuthenticationFilter implements GlobalFilter, Ordered {
             String email = jwtService.extractEmail(jwt);
             String role = jwtService.extractRole(jwt);
 
-            System.out.println("JWT validated - userId: " + userId + ", email: " + email + ", role: " + role);
+            logger.info("Authentication successful - User: {}, UserId: {}, Role: {}, Path: {}", email, userId, role, path);
 
             
-            log.info("clientip " + clientIp + " useragent " + userAgent);
             // Add user information, client IP and User-Agent to headers
             ServerHttpRequest modifiedRequest = request.mutate()
                 .header("X-User-Id", userId)
@@ -106,18 +112,16 @@ public class GatewayJwtAuthenticationFilter implements GlobalFilter, Ordered {
                 .header("X-Gateway-Secret", generateSignature(userId, email, role))
                 .build();
 
-            log.debug("JWT validated for user: {} ({})", email, userId);
-
             return chain.filter(exchange.mutate().request(modifiedRequest).build());
 
         } catch (ExpiredJwtException e) {
-            log.warn("Expired JWT token: {}", e.getMessage());
+            logger.warn("Authentication failed - Expired JWT - Path: {}, IP: {}", path, clientIp);
             return onError(exchange, "JWT token expired", HttpStatus.UNAUTHORIZED);
         } catch (JwtException e) {
-            log.error("JWT validation error: {}", e.getMessage());
+            logger.warn("Authentication failed - JWT validation error: {} - Path: {}, IP: {}", e.getMessage(), path, clientIp);
             return onError(exchange, "Invalid JWT token", HttpStatus.UNAUTHORIZED);
         } catch (Exception e) {
-            log.error("Unexpected error during JWT validation", e);
+            logger.error("Unexpected error during JWT validation - Path: {}, IP: {}", path, clientIp, e);
             return onError(exchange, "Authentication error", HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
@@ -162,6 +166,9 @@ public class GatewayJwtAuthenticationFilter implements GlobalFilter, Ordered {
             "{\"error\":\"%s\",\"status\":%d,\"timestamp\":\"%s\"}",
             message, status.value(), java.time.Instant.now()
         );
+        
+        logger.info("Request rejected - Status: {}, Message: {}, Path: {}", 
+                status.value(), message, exchange.getRequest().getPath().value());
         
         return response.writeWith(
             Mono.just(response.bufferFactory().wrap(errorJson.getBytes()))
@@ -213,7 +220,7 @@ public class GatewayJwtAuthenticationFilter implements GlobalFilter, Ordered {
                 return remoteAddress.getAddress().getHostAddress();
             }
         } catch (Exception e) {
-            log.warn("Error extracting remote address: {}", e.getMessage());
+            logger.warn("Error extracting remote address: {}", e.getMessage());
         }
         
         return "unknown";
