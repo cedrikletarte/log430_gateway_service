@@ -22,25 +22,21 @@ services:
       - brokerx-network
 
   gateway-service:
-      build: .
-      container_name: gateway-service
-      expose:
-        - "8080"
-      environment:
-        GATEWAY_SECRET: ${GATEWAY_SECRET}
-        JWT_SECRET: ${JWT_SECRET}
-      labels:
-        - "traefik.enable=true"
-        - "traefik.http.routers.gateway.rule=PathPrefix(`/`)"
-        - "traefik.http.routers.gateway.entrypoints=web"
-        - "traefik.http.services.gateway.loadbalancer.server.port=8080"
-        - "traefik.http.middlewares.ws-headers.headers.customrequestheaders.Connection=Upgrade"
-        - "traefik.http.middlewares.ws-headers.headers.customrequestheaders.Upgrade=websocket"
-        - "traefik.http.routers.gateway.middlewares=ws-headers"
-        - "traefik.http.services.gateway.loadbalancer.passhostheader=true"
-      restart: always
-      networks:
-        - brokerx-network
+    build: .
+    container_name: gateway-service
+    expose:       # pas besoin de "ports", seulement exposer à Traefik
+      - "8080"
+    environment:
+      GATEWAY_SECRET: ${GATEWAY_SECRET}
+      JWT_SECRET: ${JWT_SECRET}
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.gateway.rule=PathPrefix(`/`)" # toutes les requêtes passent au Gateway
+      - "traefik.http.routers.gateway.entrypoints=web"
+      - "traefik.http.services.gateway.loadbalancer.server.port=8080"
+    restart: always
+    networks:
+      - brokerx-network
 
 # ============================================
 # 🌐 NETWORKS
