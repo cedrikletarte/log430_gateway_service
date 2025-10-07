@@ -43,7 +43,8 @@ public class GatewayJwtAuthenticationFilter implements GlobalFilter, Ordered {
         "/ws/market",  // WebSocket endpoint public pour la connexion initiale
         "/v3/api-docs",
         "/swagger-ui",
-        "/actuator/health"
+        "/actuator/health",
+        "/actuator/prometheus"
     );
 
     @Override
