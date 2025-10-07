@@ -34,11 +34,7 @@ services:
       - "traefik.http.routers.gateway.rule=PathPrefix(`/`)" # toutes les requêtes passent au Gateway
       - "traefik.http.routers.gateway.entrypoints=web"
       - "traefik.http.services.gateway.loadbalancer.server.port=8080"
-
       - "traefik.http.services.gateway.loadbalancer.server.scheme=http"
-      - "traefik.http.middlewares.gateway-headers.headers.customrequestheaders.Connection=Upgrade"
-      - "traefik.http.middlewares.gateway-headers.headers.customrequestheaders.Upgrade=websocket"
-      - "traefik.http.routers.gateway.middlewares=gateway-headers"
     restart: always
     networks:
       - brokerx-network
