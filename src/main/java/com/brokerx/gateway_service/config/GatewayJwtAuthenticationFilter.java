@@ -1,6 +1,9 @@
 package com.brokerx.gateway_service.config;
 
 
+import com.brokerx.gateway_service.dto.ApiResponse;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
@@ -34,14 +37,15 @@ public class GatewayJwtAuthenticationFilter implements GlobalFilter, Ordered {
     private String gatewaySecret;
 
     private final JwtService jwtService;
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     // Endpoints publics (no JWT required)
     private static final List<String> PUBLIC_PATHS = List.of(
-        "/api/auth/register",
-        "/api/auth/login",
-        "/api/auth/refresh",
-        "/api/auth/verify-otp",
-        "/api/auth/logout",
+        "/api/v1/auth/register",
+        "/api/v1/auth/login",
+        "/api/v1/auth/refresh",
+        "/api/v1/auth/verify-otp",
+        "/api/v1/auth/logout",
         "/ws/market",  // WebSocket endpoint public pour la connexion initiale
         "/v3/api-docs",
         "/swagger-ui",
@@ -155,17 +159,31 @@ public class GatewayJwtAuthenticationFilter implements GlobalFilter, Ordered {
     }
 
     /**
-     * Returns error response with proper status code
+     * Returns error response with proper status code in ApiResponse format
      */
     private Mono<Void> onError(ServerWebExchange exchange, String message, HttpStatus status) {
         ServerHttpResponse response = exchange.getResponse();
         response.setStatusCode(status);
         response.getHeaders().add(HttpHeaders.CONTENT_TYPE, "application/json");
         
-        String errorJson = String.format(
-            "{\"error\":\"%s\",\"status\":%d,\"timestamp\":\"%s\"}",
-            message, status.value(), java.time.Instant.now()
+        // Create standardized error response
+        ApiResponse<Void> errorResponse = new ApiResponse<>(
+            "ERROR",
+            determineErrorCode(status),
+            message,
+            null
         );
+        
+        String errorJson;
+        try {
+            errorJson = objectMapper.writeValueAsString(errorResponse);
+        } catch (JsonProcessingException e) {
+            logger.error("Failed to serialize error response", e);
+            errorJson = String.format(
+                "{\"status\":\"ERROR\",\"errorCode\":\"%s\",\"message\":\"%s\",\"data\":null}",
+                determineErrorCode(status), message
+            );
+        }
         
         logger.info("Request rejected - Status: {}, Message: {}, Path: {}", 
                 status.value(), message, exchange.getRequest().getPath().value());
@@ -173,6 +191,19 @@ public class GatewayJwtAuthenticationFilter implements GlobalFilter, Ordered {
         return response.writeWith(
             Mono.just(response.bufferFactory().wrap(errorJson.getBytes()))
         );
+    }
+
+    /**
+     * Determines appropriate error code based on HTTP status
+     */
+    private String determineErrorCode(HttpStatus status) {
+        return switch (status.value()) {
+            case 400 -> "INVALID_REQUEST";
+            case 401 -> "UNAUTHORIZED";
+            case 403 -> "FORBIDDEN";
+            case 500 -> "INTERNAL_ERROR";
+            default -> "UNKNOWN_ERROR";
+        };
     }
 
     @Override
