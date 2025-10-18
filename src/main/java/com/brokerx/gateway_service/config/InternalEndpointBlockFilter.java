@@ -10,9 +10,9 @@ import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 
 /**
- * Filtre global qui bloque l'accès aux endpoints internes (/internal/**).
- * Ces endpoints sont réservés aux communications entre microservices
- * et ne doivent jamais être exposés publiquement via le Gateway.
+ * Global filter that blocks access to internal endpoints (/internal/**).
+ * These endpoints are reserved for inter-microservice communication
+ * and should never be exposed publicly via the Gateway.
  */
 @Slf4j
 @Component
@@ -22,7 +22,7 @@ public class InternalEndpointBlockFilter implements GlobalFilter, Ordered {
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
         String path = exchange.getRequest().getPath().value();
         
-        // Bloquer toute requête vers /internal/**
+        // Block access to /internal/** endpoints
         if (path.contains("/internal/")) {
             log.warn("Blocked access to internal endpoint: {} from IP: {}", 
                     path, 
@@ -42,7 +42,7 @@ public class InternalEndpointBlockFilter implements GlobalFilter, Ordered {
 
     @Override
     public int getOrder() {
-        // Exécuter ce filtre en premier (avant l'authentification)
+        // Execute this filter first (before authentication)
         return Ordered.HIGHEST_PRECEDENCE;
     }
 }

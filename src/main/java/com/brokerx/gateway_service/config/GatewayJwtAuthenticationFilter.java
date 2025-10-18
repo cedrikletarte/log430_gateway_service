@@ -46,7 +46,7 @@ public class GatewayJwtAuthenticationFilter implements GlobalFilter, Ordered {
         "/api/v1/auth/refresh",
         "/api/v1/auth/verify-otp",
         "/api/v1/auth/logout",
-        "/ws/market",  // WebSocket endpoint public pour la connexion initiale
+        "/ws/market",  // WebSocket public endpoint for initial connection
         "/v3/api-docs",
         "/swagger-ui",
         "/actuator/health",
