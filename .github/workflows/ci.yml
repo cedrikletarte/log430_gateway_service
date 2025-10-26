@@ -1,0 +1,64 @@
+name: Continuous Integration (CI)
+
+on:
+  push:
+    branches: ["master"]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    services:
+      docker:
+        image: docker:24.0.5
+        options: --privileged
+        ports:
+          - 2375:2375
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v3
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Cache Maven packages
+        uses: actions/cache@v3
+        with:
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            ${{ runner.os }}-maven-
+
+      - name: Build Maven package (skip tests)
+        run: mvn -B -DskipTests package
+
+      - name: Create Docker network if not exists
+        run: |
+          docker network ls | grep brokerx-network || docker network create brokerx-network
+
+      - name: Start Docker services
+        env:
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          GATEWAY_SECRET: ${{ secrets.GATEWAY_SECRET }}
+        run: docker compose up -d --build
+
+      - name: Wait for app health
+        run: |
+          for i in {1..10}; do
+            curl -f http://localhost:8080/actuator/health && break
+            echo "Waiting for app..."
+            sleep 5
+          done
+
+      - name: Run tests
+        run: mvn test
+
+      - name: Tear down
+        run: docker compose down -v
+
