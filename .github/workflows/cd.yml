@@ -27,3 +27,4 @@ jobs:
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
           GATEWAY_SECRET: ${{ secrets.GATEWAY_SECRET }}
         run: docker compose up -d --build --scale gateway-service=2
+        run: docker compose -f docker-compose-kafka.yml up -d --build 

@@ -12,6 +12,8 @@ Le Gateway est composé de deux conteneurs dans `docker-compose.yml` :
 - `traefik` (port 80 et dashboard 8080)
 - `gateway-service` (Spring Cloud Gateway exposé derrière Traefik)
 
+**Voir les autres fichiers README pour la configuration des autres microservices**
+
 ## Prérequis
 - Docker Desktop installé (Windows/macOS) ou Docker Engine (Linux)
 - Réseau Docker externe `brokerx-network` (partagé avec les autres services)
