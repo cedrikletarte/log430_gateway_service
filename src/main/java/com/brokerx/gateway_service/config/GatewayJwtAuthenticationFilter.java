@@ -60,7 +60,7 @@ public class GatewayJwtAuthenticationFilter implements GlobalFilter, Ordered {
         String path = request.getPath().value();
         String method = request.getMethod().name();
 
-        // Extract client info (toujours)
+        // Extract client info (always)
         String clientIp = extractRealClientIp(request);
         String userAgent = extractUserAgent(request);
 
