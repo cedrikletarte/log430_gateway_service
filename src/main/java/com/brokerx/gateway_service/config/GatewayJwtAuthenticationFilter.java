@@ -17,7 +17,6 @@ import org.apache.logging.log4j.Logger;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
 import org.springframework.cloud.gateway.filter.GlobalFilter;
-import org.springframework.core.Ordered;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.server.reactive.ServerHttpRequest;
@@ -29,7 +28,7 @@ import reactor.core.publisher.Mono;
 
 @Component
 @RequiredArgsConstructor
-public class GatewayJwtAuthenticationFilter implements GlobalFilter, Ordered {
+public class GatewayJwtAuthenticationFilter implements GlobalFilter {
 
     private static final Logger logger = LogManager.getLogger(GatewayJwtAuthenticationFilter.class);
 
@@ -54,6 +53,7 @@ public class GatewayJwtAuthenticationFilter implements GlobalFilter, Ordered {
         "/actuator/prometheus"
     );
 
+    /* Main filter method processing each request */
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
         ServerHttpRequest request = exchange.getRequest();
@@ -131,9 +131,7 @@ public class GatewayJwtAuthenticationFilter implements GlobalFilter, Ordered {
         }
     }
 
-    /**
-     * Extracts JWT from Authorization header or cookies
-     */
+    /* Extracts JWT from Authorization header or cookies */
     private String extractJwt(ServerHttpRequest request) {
         // 1. Try Authorization header
         HttpHeaders headers = request.getHeaders();
@@ -152,16 +150,12 @@ public class GatewayJwtAuthenticationFilter implements GlobalFilter, Ordered {
         return null;
     }
 
-    /**
-     * Checks if the path is public (no authentication required)
-     */
+    /* Checks if the path is public (no authentication required) */
     private boolean isPublicPath(String path) {
         return PUBLIC_PATHS.stream().anyMatch(path::startsWith);
     }
 
-    /**
-     * Returns error response with proper status code in ApiResponse format
-     */
+    /* Returns error response with proper status code in ApiResponse format */
     private Mono<Void> onError(ServerWebExchange exchange, String message, HttpStatus status) {
         ServerHttpResponse response = exchange.getResponse();
         response.setStatusCode(status);
@@ -194,9 +188,7 @@ public class GatewayJwtAuthenticationFilter implements GlobalFilter, Ordered {
         );
     }
 
-    /**
-     * Determines appropriate error code based on HTTP status
-     */
+    /* Determines appropriate error code based on HTTP status */
     private String determineErrorCode(HttpStatus status) {
         return switch (status.value()) {
             case 400 -> "INVALID_REQUEST";
@@ -205,11 +197,6 @@ public class GatewayJwtAuthenticationFilter implements GlobalFilter, Ordered {
             case 500 -> "INTERNAL_ERROR";
             default -> "UNKNOWN_ERROR";
         };
-    }
-
-    @Override
-    public int getOrder() {
-        return -100; // Exécuter tôt dans la chaîne de filtres
     }
 
     private String generateSignature(String userId, String email, String role) {
@@ -221,9 +208,7 @@ public class GatewayJwtAuthenticationFilter implements GlobalFilter, Ordered {
             .compact();
     }
 
-    /**
-     * Extracts the real client IP address, handling proxies and load balancers
-     */
+    /* Extracts the real client IP address, handling proxies and load balancers */
     private String extractRealClientIp(ServerHttpRequest request) {
         // Check X-Forwarded-For header (standard for proxies)
         String xForwardedFor = request.getHeaders().getFirst("X-Forwarded-For");
@@ -233,15 +218,13 @@ public class GatewayJwtAuthenticationFilter implements GlobalFilter, Ordered {
             String[] ips = xForwardedFor.split(",");
             for (String ip : ips) {
                 String cleanIp = ip.trim();
-                if (!isInternalIp(cleanIp)) {
                     return cleanIp;
-                }
             }
         }
         
         // Check X-Real-IP header (often used by NGINX)
         String xRealIp = request.getHeaders().getFirst("X-Real-IP");
-        if (xRealIp != null && !xRealIp.isEmpty() && !isInternalIp(xRealIp)) {
+        if (xRealIp != null && !xRealIp.isEmpty()) {
             return xRealIp;
         }
         
@@ -258,9 +241,7 @@ public class GatewayJwtAuthenticationFilter implements GlobalFilter, Ordered {
         return "unknown";
     }
 
-    /**
-     * Extracts the User-Agent header from the request
-     */
+    /* Extracts the User-Agent header from the request */
     private String extractUserAgent(ServerHttpRequest request) {
         String userAgent = request.getHeaders().getFirst("User-Agent");
         if (userAgent != null && !userAgent.isEmpty()) {
@@ -268,27 +249,5 @@ public class GatewayJwtAuthenticationFilter implements GlobalFilter, Ordered {
             return userAgent.length() > 500 ? userAgent.substring(0, 500) + "..." : userAgent;
         }
         return "unknown";
-    }
-
-    /**
-     * Checks if an IP address is internal/private
-     */
-    private boolean isInternalIp(String ip) {
-        if (ip == null || ip.isEmpty()) {
-            return true;
-        }
-        
-        // Common internal IP ranges
-        return ip.startsWith("10.") ||
-               ip.startsWith("172.16.") || ip.startsWith("172.17.") || ip.startsWith("172.18.") ||
-               ip.startsWith("172.19.") || ip.startsWith("172.20.") || ip.startsWith("172.21.") ||
-               ip.startsWith("172.22.") || ip.startsWith("172.23.") || ip.startsWith("172.24.") ||
-               ip.startsWith("172.25.") || ip.startsWith("172.26.") || ip.startsWith("172.27.") ||
-               ip.startsWith("172.28.") || ip.startsWith("172.29.") || ip.startsWith("172.30.") ||
-               ip.startsWith("172.31.") ||
-               ip.startsWith("192.168.") ||
-               ip.equals("127.0.0.1") ||
-               ip.equals("::1") ||
-               ip.equals("localhost");
     }
 }

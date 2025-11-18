@@ -100,9 +100,7 @@ public class GlobalExceptionHandler implements ErrorWebExceptionHandler {
         return exchange.getResponse().writeWith(Mono.just(buffer));
     }
 
-    /**
-     * Determines appropriate error code based on HTTP status.
-     */
+    /* Determines appropriate error code based on HTTP status. */
     private String determineErrorCode(HttpStatus status) {
         return switch (status.value()) {
             case 400 -> "BAD_REQUEST";

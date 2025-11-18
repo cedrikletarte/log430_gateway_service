@@ -19,17 +19,13 @@ public class JwtService {
     @Value("${jwt.secret}")
     private String secretKey;
 
-    /**
-     * Generates the secret key for JWT validation
-     */
+    /* Generates the secret key for JWT validation */
     private SecretKey getSignInKey() {
         byte[] keyBytes = Decoders.BASE64.decode(secretKey);
         return Keys.hmacShaKeyFor(keyBytes);
     }
 
-    /**
-     * Extracts all claims from JWT token
-     */
+    /* Extracts all claims from JWT token */
     private Claims extractAllClaims(String token) {
         return Jwts.parser()
                 .verifyWith(getSignInKey())
@@ -38,38 +34,28 @@ public class JwtService {
                 .getPayload();
     }
 
-    /**
-     * Extracts specific claim using resolver function
-     */
+    /* Extracts specific claim using resolver function */
     public <T> T extractClaim(String token, Function<Claims, T> claimsResolver) {
         final Claims claims = extractAllClaims(token);
         return claimsResolver.apply(claims);
     }
 
-    /**
-     * Extracts user ID from token subject
-     */
+    /* Extracts user ID from token subject */
     public String extractUserId(String token) {
         return extractClaim(token, Claims::getSubject);
     }
 
-    /**
-     * Extracts email from custom claim
-     */
+    /* Extracts email from custom claim */
     public String extractEmail(String token) {
         return extractClaim(token, claims -> claims.get("email", String.class));
     }
 
-    /**
-     * Extracts role from custom claim
-     */
+    /* Extracts role from custom claim */
     public String extractRole(String token) {
         return extractClaim(token, claims -> claims.get("role", String.class));
     }
 
-    /**
-     * Validates JWT token (signature + expiration)
-     */
+    /* Validates JWT token (signature + expiration) */
     public boolean isTokenValid(String token) {
         try {
             Claims claims = extractAllClaims(token);
@@ -80,9 +66,7 @@ public class JwtService {
         }
     }
 
-    /**
-     * Checks if token is expired
-     */
+    /* Checks if token is expired */
     private boolean isTokenExpired(Claims claims) {
         Date expiration = claims.getExpiration();
         return expiration.before(new Date());
