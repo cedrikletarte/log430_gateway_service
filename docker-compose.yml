@@ -8,13 +8,13 @@ services:
     image: traefik:3
     container_name: traefik
     command:
-      - "--api.dashboard=true"        # Active le dashboard Traefik
-      - "--api.insecure=true"          # Dashboard activé en clair (sans authentification)
-      - "--providers.docker=true"      # Auto-config à partir des labels Docker
-      - "--entrypoints.web.address=:80" # Traefik écoute sur port 80
+      - "--api.dashboard=true"        # Enable Traefik dashboard
+      - "--api.insecure=true"          # Dashboard enabled without authentication
+      - "--providers.docker=true"      # Auto-config from Docker labels
+      - "--entrypoints.web.address=:80" # Traefik listens on port 80
     ports:
-      - "80:80"   # accès à l'API via http://localhost
-      - "8080:8080" # Dashboard Traefik http://localhost:8080
+      - "80:80"   # access the API via http://localhost
+      - "8080:8080" # Traefik dashboard http://localhost:8080
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
     restart: always
@@ -31,10 +31,10 @@ services:
       JWT_SECRET: ${JWT_SECRET}
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.gateway.rule=PathPrefix(`/`)" # toutes les requêtes passent au Gateway
-      - "traefik.http.routers.gateway.entrypoints=web" # utilise l'entrypoint web (port 80)
-      - "traefik.http.services.gateway.loadbalancer.server.port=8080" # port interne du service
-      - "traefik.http.services.gateway.loadbalancer.server.scheme=http" # schéma http
+      - "traefik.http.routers.gateway.rule=PathPrefix(`/`)" # all requests go to the Gateway
+      - "traefik.http.routers.gateway.entrypoints=web" # use the web entrypoint (port 80)
+      - "traefik.http.services.gateway.loadbalancer.server.port=8080" # internal service port
+      - "traefik.http.services.gateway.loadbalancer.server.scheme=http" # http scheme
     restart: always
     networks:
       - brokerx-network
